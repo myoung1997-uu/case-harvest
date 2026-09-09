@@ -33,6 +33,23 @@ Plugin(dolphin) 仓要单独抓：B 兼容（MySQL 语义）缺陷的修复主�
 - **非数据库本体**：docker/容器/镜像/jdbc/odbc/驱动/dbeaver/navicat/编译失败/安装部署/门禁/流水线/文档链接/avx512/指令集/操作系统/k8s
 - **单机造不出的形态**：core/coredump/宕机/主备/备机/容灾/双机/级联备/资源池化/共享存储/switchover/failover/cm_ctl/gs_om/多节点/扩容
 
+**优先挑「有已合并关联 PR」的**。这是选题阶段就能锁死根因的唯一办法：进池前先查
+`data/raw/issue_pulls/{n}.json` 里有没有 `state=merged` 的 PR，有就说明社区认了这个缺陷、修了、
+而且根因白纸黑字写在 PR 的「根因分析」「实现方案」栏里。
+
+两轮实测对比（同一套流程，只换选题口径）：
+
+| | 不筛关联 PR | 要求有已合并 PR |
+|---|---|---|
+| 池子 | 3903 | 1206 |
+| 正文自带 SQL | 41% | 75% |
+| 复现 | 121 | 159 |
+| 根因覆盖 | 事后满世界找，90% | **进池前就 100%** |
+| 可用资产 GT=3 占比 | 46/145 | **158/159** |
+
+不筛的那一轮，大量精力花在「复现出来了但找不到根因，只能降档或作废」。筛过之后这块成本直接归零，
+构造 agent 还能拿 PR 根因当线索——照着 PR 说的边界条件构造，比照着现象猜准得多。
+
 **不要用 dbdogFit / buildCost / groundTruth 的分档当过滤器。** 这三个都是关键词规则打出来的分，误杀严重——`COST_HEAVY_CN` 里有「升级」，正文写一句"升级到 X 版本后出现"的纯 SQL 缺陷就被判成单机造不出。它们只配当排序项。
 
 **版本也不要当过滤器。** issue 标的影响版本经常对不上实际能复现的版本，按版本筛会漏掉大批。
@@ -43,6 +60,15 @@ Plugin(dolphin) 仓要单独抓：B 兼容（MySQL 语义）缺陷的修复主�
 
 **a) 正文自带 SQL 的**——程序化抽取。抽取器的坑（全部踩过）：
 
+- **PL/SQL 体不能按 `;` 切句**——`CREATE PROCEDURE ... BEGIN x:=1; ... END;` 里第一个内部分号就会把过程腰斩，
+  DB 一律回 `subprogram body is not ended correctly`。必须**进入 PL 体后忽略体内分号，靠 begin/end 深度配对收口**
+  （`begin`/`case`/`loop`/`if` 加一层，`end` 减一层，归零且行尾是 `end...;` 才断句）。
+  实测这一条占「构造失败」的最大头：修好后该类报错从 369 个版本格降到 82 个。
+  注意 `if not exists` 里的 `if` 不算开块。
+- **判「缓冲区为空」要忽略空白行**——PL 块识别若写成「缓冲区为空才认头」，正文里 `declare` 前的一个空行
+  就会让整个识别失效。踩过，而且因为聚合指标还在变好，一度没发现。
+- **有围栏代码块时别再按反引号扫全文**——同一段 SQL 会被取材两次，跑出满屏 `already exists`。
+  取材完按「压空白+小写」做一次语句级去重。
 - `DO $$…$$;` 之后多写一行 `/`，gsql 当独立语句报错**并吞掉后面所有判读语句**
 - 一行里写多条语句（`drop ...;create ...;`）要按 `;` 拆
 - 遇到以 SQL 关键字开头的新行要断句，否则前面的散文会和建表语句粘成一句，整句因不以 SQL 开头被丢弃
@@ -65,6 +91,20 @@ vm203（`192.168.122.203`，从 `dbdog-server` 跳进去）上三个实例，**�
 
 所以 **B 兼容用例在 RC1 上一律判「缺依赖」不判「不复现」**——判后者等于谎称 RC1 没这个缺陷。D 兼容用例反过来只能在 RC1 跑。
 
+**兼容模式派库的三件事，缺一条就整批白跑：**
+
+1. **别只看正文有没有写「B 兼容/MySQL 模式」**——大多数 issue 不写。要按 SQL 语法指纹判：
+   反引号标识符、`@var` / `@@var`、`auto_increment`、`tinyint/mediumint/tinyblob`、`unsigned`、
+   `on update current_timestamp`、`replace into` / `insert ignore`、`declare ... handler for`、
+   `datediff/str_to_date/date_format/yearweek/group_concat/find_in_set/ifnull`、`engine=`、
+   `charset ... collate`、`alter index ... invisible`。实测补上指纹后多认出 39 条。
+2. **建了 B 兼容库不等于 B 语法能用**——`datcompatibility='B'` + 装了 dolphin 之后，
+   `@变量`和反引号标识符**还需要 `SET enable_set_variable_b_format=on`**，否则一律 `syntax error at or near "@"`。
+   踩过：149 条 B 兼容用例因为缺这个开关，根本没跑到触发语句。每条 B 兼容脚本开头都要带上。
+3. **跑之前先确认目标库真的存在**。`bench_d` 一度根本没建，10 条 D 兼容用例连库都没连上——
+   gsql 连不上库和「跑通了没报错」在日志里长得一样，取证脚本按 `clean` 记账，是纯假阴性。
+   **给「输出字节 < 100」加一条告警**，这是唯一能自动发现它的信号。
+
 跑批要点：
 
 - 每实例多 worker 并行，但**临时文件名必须带 worker 序号**
@@ -72,6 +112,26 @@ vm203（`192.168.122.203`，从 `dbdog-server` 跳进去）上三个实例，**�
 - 挂看门狗常驻，每 10 秒探一次，掉了自动拉
 - core 文件每个实例只留最近一个（一个 200MB）
 - 需要 `gs_dump`/`gs_probackup`/改参数重启的**串行单独跑**，别跟 SQL 批混
+- **`while read` 循环里的 `su`/`ssh` 会吃掉管道剩余的输入行**，worker 会提前「读完」退出。
+  症状很好认：多个 worker 停在同一个数字上。所有 `su`/`ssh` 都要加 `< /dev/null`。
+- **现役采集实例（RC1）不给自愈，但也不能直接放弃**——一条崩溃用例把它打崩后，
+  若 revive 直接返回失败，剩下几百条会全部 `SKIP`。正确做法是**只等它自己恢复、绝不主动 systemctl**
+  （openGauss postmaster 会自行重启），既守住「不重启现役实例」的纪律，也不丢用例。
+
+### 跑批前必须清的环境残留
+
+上一轮用例留下的全局对象会静默污染整批，且症状看起来像「数据库缺陷」：
+
+```sql
+-- FOR ALL TABLES 的逻辑复制发布：无 replica identity 的表 UPDATE/DELETE 一律被拒
+select pubname from pg_publication where puballtables;
+-- 用例留下的 DDL 审计事件触发器：别的用例会报 permission denied for relation <审计表>
+select evtname from pg_event_trigger;
+-- c<id> 前缀的残留 schema、以及 create database/tablespace/extension 的残留
+select nspname from pg_namespace where nspname ~ '^c[0-9]+';
+```
+
+前两类必清。发布那一条是实测最毒的——四个判读 agent 从不同分片独立指认它。
 
 ## 阶段 5 · 判读
 
@@ -142,4 +202,10 @@ grep -L -E '^(EVIDENCE_SUSPECT=yes|NON_DEFECT=|ISSUE_OPEN=yes)' loop/cases/OG-*/
 - **复现不等于是缺陷。** 社区判「已取消」的占比不低（复现集里约 27%），必须按 `stateDetail` 筛掉或标为负样本。
 - **默认配置下复现，不代表没修。** 先查有没有 GUC 开关。
 - **并行跑批的崩溃归属不可信**，必须隔离复验。
-- 远端只在 vm203 的三个复现实例上做写操作；RC1（5432）是现役采集实例，**不重启它、不改它的配置**。
+- **「跑通了没报错」和「压根没跑」在日志里长得一样。** 连不上库、脚本被吞、判读语句执行不到，
+  取证脚本都会记成 `clean`。唯一的自动信号是**输出字节异常小**，必须加告警。
+- **改抽取器/取证脚本后，要对具体用例做前后 diff，不能只看聚合指标。** 踩过两次：
+  一次 heredoc 多重转义把正则写成 `\\s`（raw string 里是字面反斜杠），修复空转三轮而指标还在变好；
+  一次「过滤 gsql 回显」的对象名写成可选，把 PL 块里独占一行的 `begin` 当 banner 删了，比修之前更糟。
+- 远端只在 vm203 的三个复现实例上做写操作；RC1（5432）是现役采集实例，**不重启它、不改它的配置**
+  （建测试库、清测试库里的残留对象不算改配置，可以做）。
