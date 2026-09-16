@@ -34,6 +34,7 @@ issue 号：{IDS}
 5. **默认配置下复现 ≠ 社区没修**。PR 说修复藏在 GUC 后面（`sql_beta_feature`、`behavior_compat_options` 等）时，在理由里写明，不要据此判 issue 无效。
 6. 发现是**我们脚本的 bug**（引用不存在的系统表列、`SET ROLE` 缺口令、对照组自己也报错），在 `script_bug` 里写清楚怎么修，主会话会修完重跑。
 7. `yes` 的判读理由必须引用**日志原文**作为证据，不许概括。
+8. **resource（满）类的指标型现象**（autovacuum 不清死元组、体积只涨不收这类）判 `yes` 前先确认机制在环境里是活的：相关 GUC 开着（如 `SHOW autovacuum` 为 on）或有正常对照（同样操作下正常对象的指标在变）。开关被管理员关掉导致的不动是环境问题，判 `construct_fail` 或 `missing_dep`，不许判 `yes`——那是把配置当缺陷。
 
 ## 产出
 
