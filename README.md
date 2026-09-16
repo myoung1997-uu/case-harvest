@@ -85,7 +85,7 @@ cases/_alias-map.json
 
 ## 供题（阶段 8）
 
-每轮收口跑 `stats.py`（六桶统计：可复现 / 不可复现-脚本侧 / 不可复现-非脚本 / 负样本 / 存疑 / 未定论，
+每轮收口跑 `stats.py`（六桶统计：可复现 / 不可复现-脚本 / 不可复现-引擎 / 负样本 / 存疑 / 未定论，
 另有「未跑完」告警不入桶）→ `feed.py prep` 把可复现用例组装进 `<项目根>/.dbdog-outbox/`（manifest 带
 `total_issues`/`filtered_issues`/`repro_stats` 六键，全部本轮增量）→ 子 agent 按 `prompts/feed.md` 写
 setup.sh/run.sh/cleanup.sh（规矩单源 dbdog-push-kit/AGENTS.md）→ `feed.py check` 自检 →

@@ -6,9 +6,9 @@
   负样本            有 yes 但 NON_DEFECT（社区判已取消）
   存疑              有 yes 但 EVIDENCE_SUSPECT=yes（优先级在负样本之后）
   未定论            有 yes 但 ISSUE_OPEN=yes（merged_pr 属已定论，算可复现）
-  不可复现-脚本侧   判定含 construct_fail 或 script_bug 非空；或材料没造出来（无 constructed/<n>/，
-                    缺扩展/转构造队列都归这里——它们是我们材料侧的原因，不是缺陷不重现）
-  不可复现-非脚本   判定过、无 yes、无 construct_fail（本地再细分 all_no / missing_dep / uncertain）
+  不可复现-脚本     判定含 construct_fail 或 script_bug 非空；或材料没造出来（无 constructed/<n>/，
+                    缺扩展/转构造队列都归这里——都是我们脚本侧没做到位，不是缺陷不重现）
+  不可复现-引擎     判定过、无 yes、无 construct_fail（本地再细分 all_no / missing_dep / uncertain）
   未跑完            材料在、但没有判读（跑批或判读没走到）——只告警，不入桶
 
 标记推导单源在 promote.derive_flags；已沉淀的以 cases/OG-<n>/case.env 为准。
@@ -145,8 +145,8 @@ def main():
     print(f"轮次 r{rec['round']}（{rec.get('at', '?')}）  筛选问题范围 {funnel.get('全量', '?')}  条件过滤后 {total}")
     print(f"  可复现          {buckets['reproducible']}")
     print(f"  不可复现        {buckets['nonrepro_script'] + buckets['nonrepro_other']}"
-          f"（脚本侧 {buckets['nonrepro_script']} / 非脚本 {buckets['nonrepro_other']}；"
-          f"非脚本细分 all_no {detail.get('all_no', 0)} / missing_dep {detail.get('missing_dep', 0)} /"
+          f"（脚本 {buckets['nonrepro_script']} / 引擎 {buckets['nonrepro_other']}；"
+          f"引擎细分 all_no {detail.get('all_no', 0)} / missing_dep {detail.get('missing_dep', 0)} /"
           f" uncertain {detail.get('uncertain', 0)}）")
     print(f"  负样本          {buckets['negative']}   存疑 {buckets['suspect']}   未定论 {buckets['undecided']}")
     checked = sum(buckets.values())

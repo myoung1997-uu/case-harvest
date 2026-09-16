@@ -51,7 +51,7 @@ class Feed(unittest.TestCase):
             d = os.path.join(self.h, "constructed", n)
             os.makedirs(d)
             json.dump({"id": n, "how_to_judge": "看 JUDGE_ROWS 输出"}, open(os.path.join(d, "meta.json"), "w"))
-        # 105 判 yes 但不沉淀 → prep 要拦；107 判 construct_fail（脚本侧，不进批次）
+        # 105 判 yes 但不沉淀 → prep 要拦；107 判 construct_fail（脚本桶，不进批次）
         with open(os.path.join(self.h, "judged", "105.json"), "w") as f:
             json.dump(judged("105", ["yes"]), f, ensure_ascii=False)
         with open(os.path.join(self.h, "judged", "107.json"), "w") as f:

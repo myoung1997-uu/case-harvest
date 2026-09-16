@@ -93,8 +93,8 @@ grep -L -E '^(EVIDENCE_SUSPECT=yes|NON_DEFECT=|ISSUE_OPEN=yes)' cases/OG-*/case.
 | 负样本 | 有 yes 但社区判已取消（NON_DEFECT） |
 | 存疑 | 有 yes 但 EVIDENCE_SUSPECT=yes |
 | 未定论 | 有 yes 但 ISSUE_OPEN=yes（merged_pr 算已定论归可复现） |
-| 不可复现-脚本侧 | 判定含 construct_fail / script_bug；或材料没造出来（无 constructed/<n>/） |
-| 不可复现-非脚本 | 判定过、无 yes、无 construct_fail（细分 all_no/missing_dep/uncertain 只进本地报告） |
+| 不可复现-脚本 | 判定含 construct_fail / script_bug；或材料没造出来（无 constructed/<n>/） |
+| 不可复现-引擎 | 判定过、无 yes、无 construct_fail（细分 all_no/missing_dep/uncertain 只进本地报告） |
 | 未跑完 | 材料在、没判读——**只告警不入桶** |
 
 ```bash
@@ -116,7 +116,7 @@ python3 $SKILL/scripts/feed.py check <批次目录>   # 本地自检；平台终
 
 ## 汇报
 
-每个阶段结束报数字：漏斗各级、生成/转构造/缺扩展、各实例跑完/崩溃/隔离确认/noexec、各结论计数、GT 分布、沉淀/拒收；**轮次收口时报六桶**——筛选范围 / 过滤后 / 可复现 / 不可复现（脚本侧·非脚本）/ 负样本 / 存疑 / 未定论 / 未跑完。有异常数字（某实例 noexec 成片、某版本全是 construct_fail、未跑完非 0）先停下来查，不要继续往下推。
+每个阶段结束报数字：漏斗各级、生成/转构造/缺扩展、各实例跑完/崩溃/隔离确认/noexec、各结论计数、GT 分布、沉淀/拒收；**轮次收口时报六桶**——筛选范围 / 过滤后 / 可复现 / 不可复现（脚本·引擎）/ 负样本 / 存疑 / 未定论 / 未跑完。有异常数字（某实例 noexec 成片、某版本全是 construct_fail、未跑完非 0）先停下来查，不要继续往下推。
 
 ## 铁律
 

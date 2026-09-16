@@ -55,11 +55,11 @@ class SixBuckets(unittest.TestCase):
         wj("103", ["yes"])                                   # 未定论
         wj("104", ["yes"])                                   # merged_pr 属已定论 → 可复现
         wj("105", ["yes"])                                   # 未沉淀，靠 derive_flags 推导
-        wj("108", ["no", "no"])                              # 非脚本 all_no
-        wj("109", ["construct_fail"])                        # 脚本侧
-        wj("110", ["no", "uncertain"])                       # 非脚本 uncertain
-        wj("111", ["no"], script_bug="引用了不存在的列")       # 脚本侧（script_bug）
-        wj("112", ["missing_dep"])                           # 非脚本 missing_dep
+        wj("108", ["no", "no"])                              # 引擎 all_no
+        wj("109", ["construct_fail"])                        # 脚本
+        wj("110", ["no", "uncertain"])                       # 引擎 uncertain
+        wj("111", ["no"], script_bug="引用了不存在的列")       # 脚本（script_bug）
+        wj("112", ["missing_dep"])                           # 引擎 missing_dep
 
         write_case_env(h, "100")
         write_case_env(h, "101", ["NON_DEFECT=cancelled"])
@@ -73,7 +73,7 @@ class SixBuckets(unittest.TestCase):
             f.write(json.dumps({"number": "105", "state": "open",
                                 "issue_state_detail": {"title": "进行中"}}) + "\n")
 
-        # 106 材料在、没判读 → 未跑完；107 连材料都没有 → 脚本侧
+        # 106 材料在、没判读 → 未跑完；107 连材料都没有 → 脚本
         os.makedirs(os.path.join(h, "constructed", "106"))
         json.dump({"id": "106"}, open(os.path.join(h, "constructed", "106", "meta.json"), "w"))
 
