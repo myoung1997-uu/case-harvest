@@ -101,6 +101,22 @@ def _issue(home, num):
     raise PromoteError(f"raw/issues.jsonl 里没有 issue {num}")
 
 
+def derive_flags(j, issue):
+    """负样本/未定论标记的唯一推导口（promote 与 stats 共用，别处不许另写一份）。
+
+    judged 里的 flags 优先（判读/根因 agent 标的），缺的从 issue 状态推导：
+    已取消 → NON_DEFECT；单子未关 → merged_pr（有已合并修复，照常用）或 yes（真未定论）。
+    """
+    state_detail = (issue.get("issue_state_detail") or {}).get("title") or ""
+    merged = [p for p in j["prs"] if (p.get("state") or "merged") == "merged"]
+    flags = dict(j.get("flags") or {})
+    if state_detail == "已取消":
+        flags.setdefault("NON_DEFECT", "cancelled")
+    if issue.get("state") != "closed" and "ISSUE_OPEN" not in flags:
+        flags["ISSUE_OPEN"] = "merged_pr" if merged else "yes"
+    return flags
+
+
 def promote(home, j, cases_dir, instances, arch="x86_64", repeat=None):
     validate(j)
     num = str(j["id"])
@@ -143,11 +159,7 @@ def promote(home, j, cases_dir, instances, arch="x86_64", repeat=None):
 
     state_detail = (issue.get("issue_state_detail") or {}).get("title") or ""
     merged = [p for p in j["prs"] if (p.get("state") or "merged") == "merged"]
-    flags = dict(j.get("flags") or {})
-    if state_detail == "已取消":
-        flags.setdefault("NON_DEFECT", "cancelled")
-    if issue.get("state") != "closed" and "ISSUE_OPEN" not in flags:
-        flags["ISSUE_OPEN"] = "merged_pr" if merged else "yes"
+    flags = derive_flags(j, issue)
 
     rc = j["root_cause"]
     phen = j["phenomenon"].replace('"', "'")

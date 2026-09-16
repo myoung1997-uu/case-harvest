@@ -16,6 +16,7 @@ import json
 import os
 import re
 import sys
+from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common  # noqa: E402
@@ -137,6 +138,21 @@ def main():
     print(f"候选 {len(out)} 条 → {home}/candidates.jsonl")
     print(f"  正文自带 SQL {sum(x['has_sql'] for x in out)}；社区判已取消(留作负样本) {sum(x['non_defect'] for x in out)}；"
           f"关联 PR 定不了仓 {sum(x['repo_unresolved'] for x in out)}")
+
+    # 每跑一次 pick 就是一轮筛选。漏斗计数在本脚本算出，就地落盘——stats.py/feed.py 只消费不重算。
+    rounds_path = os.path.join(home, "rounds.jsonl")
+    prev = []
+    if os.path.exists(rounds_path):
+        prev = [json.loads(l) for l in open(rounds_path, encoding="utf-8") if l.strip()]
+    rec = {
+        "round": max((r.get("round", 0) for r in prev), default=0) + 1,
+        "at": datetime.now().isoformat(timespec="seconds"),
+        "funnel": funnel,
+        "candidates": [x["id"] for x in out],
+    }
+    with open(rounds_path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    print(f"轮次 r{rec['round']} → {rounds_path}")
 
 
 if __name__ == "__main__":

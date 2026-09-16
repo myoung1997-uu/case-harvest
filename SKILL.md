@@ -1,13 +1,13 @@
 ---
 name: case-harvest
-description: 从 openGauss 社区（gitcode）issue 批量收割可复现的缺陷用例——抓 issue/评论/关联 PR → 初筛（要求有已合并修复 PR）→ 程序化抽 SQL + agent 构造复现材料 → 在多个版本实例上并行实跑 → 崩溃隔离复验 → agent 判读 → 溯根因 → 沉淀成 cases/OG-<n>/ 用例目录（case.env/setup.sql/workload.sql/prompt.txt/ground-truth.md/issues.json）。脚本自带，数据目录与实例清单可配。触发词：收割用例、case-harvest、补用例、扩用例库、从 issue 挖用例、openGauss issue 复现。
+description: 从 openGauss 社区（gitcode）issue 批量收割可复现的缺陷用例——抓 issue/评论/关联 PR → 初筛（要求有已合并修复 PR）→ 程序化抽 SQL + agent 构造复现材料 → 在多个版本实例上并行实跑 → 崩溃隔离复验 → agent 判读 → 溯根因 → 沉淀成 cases/OG-<n>/ 用例目录 → 每轮六桶统计 + 组装发件箱供题到用例平台（Stop hook 自动推）。脚本自带，数据目录与实例清单可配。触发词：收割用例、case-harvest、补用例、扩用例库、从 issue 挖用例、openGauss issue 复现、供题、推用例。
 ---
 
 # case-harvest：把 openGauss 社区 issue 变成可复现的用例
 
-七个阶段，每个阶段可单独跑、可断点续跑。脚本在本 skill 的 `scripts/`（下文 `$SKILL`），只用 Python 3 标准库和 bash。
+八个阶段，每个阶段可单独跑、可断点续跑。脚本在本 skill 的 `scripts/`（下文 `$SKILL`），只用 Python 3 标准库和 bash。
 
-- **数据目录** `$HARVEST_HOME`（默认 `./harvest`）：语料、材料、结果、用例都在这里。**先问用户放哪**；全量语料约 1~2 GB。
+- **数据目录** `$HARVEST_HOME`（默认 `./harvest`）：语料、材料、结果、用例、轮次记录（`rounds.jsonl` + `rounds/`）都在这里。**先问用户放哪**；全量语料约 1~2 GB。
 - **实例清单** `instances.conf`：从 `$SKILL/instances.example.conf` 复制改。**没有实例就只能做到阶段 3**，先告诉用户。
 - 每个 python 脚本都读 `HARVEST_HOME` 环境变量，下面命令默认已 `export HARVEST_HOME=...`。
 
@@ -83,9 +83,40 @@ python3 $SKILL/scripts/promote.py --instances instances.conf --all [--cases 目�
 grep -L -E '^(EVIDENCE_SUSPECT=yes|NON_DEFECT=|ISSUE_OPEN=yes)' cases/OG-*/case.env
 ```
 
+## 阶段 8 · 统计与供题（本机）
+
+每轮（= 一次 pick）跑完判读/沉淀后收口。统计六桶口径（六桶 + 未跑完 = 本轮候选数）：
+
+| 桶 | 判据 |
+|---|---|
+| 可复现 | 任一版本判 yes，且 case.env 无 NON_DEFECT / EVIDENCE_SUSPECT=yes / ISSUE_OPEN=yes |
+| 负样本 | 有 yes 但社区判已取消（NON_DEFECT） |
+| 存疑 | 有 yes 但 EVIDENCE_SUSPECT=yes |
+| 未定论 | 有 yes 但 ISSUE_OPEN=yes（merged_pr 算已定论归可复现） |
+| 不可复现-脚本侧 | 判定含 construct_fail / script_bug；或材料没造出来（无 constructed/<n>/） |
+| 不可复现-非脚本 | 判定过、无 yes、无 construct_fail（细分 all_no/missing_dep/uncertain 只进本地报告） |
+| 未跑完 | 材料在、没判读——**只告警不入桶** |
+
+```bash
+python3 $SKILL/scripts/stats.py --round N        # 六桶报数 → rounds/<N>.stats.json
+python3 $SKILL/scripts/feed.py prep --round N --outbox <项目根>/.dbdog-outbox [--close]
+```
+
+prep 组装发件箱批次（manifest 统计 + 可复现用例清单 + 空壳目录 + work-queue.jsonl）。然后读
+`$SKILL/prompts/feed.md`，按 work-queue 每 10~20 条派子 agent 写三脚本（setup.sh/run.sh/cleanup.sh，
+规矩单源在 dbdog-push-kit/AGENTS.md），写完：
+
+```bash
+python3 $SKILL/scripts/feed.py check <批次目录>   # 本地自检；平台终审在推送时
+```
+
+**不自己调推送命令**——case-feed 的 Stop hook 扫 `.dbdog-outbox/` 自动推，平台拒收的错误清单会
+回灌到下一回合，修正后自动重推。`--close` 把本轮候选补进 tried.jsonl 封账（下轮 pick 跳过）；
+封账前 stats 必须 0 条未跑完。
+
 ## 汇报
 
-每个阶段结束报数字：漏斗各级、生成/转构造/缺扩展、各实例跑完/崩溃/隔离确认/noexec、各结论计数、GT 分布、沉淀/拒收。有异常数字（某实例 noexec 成片、某版本全是 construct_fail）先停下来查，不要继续往下推。
+每个阶段结束报数字：漏斗各级、生成/转构造/缺扩展、各实例跑完/崩溃/隔离确认/noexec、各结论计数、GT 分布、沉淀/拒收；**轮次收口时报六桶**——筛选范围 / 过滤后 / 可复现 / 不可复现（脚本侧·非脚本）/ 负样本 / 存疑 / 未定论 / 未跑完。有异常数字（某实例 noexec 成片、某版本全是 construct_fail、未跑完非 0）先停下来查，不要继续往下推。
 
 ## 铁律
 

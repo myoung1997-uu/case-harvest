@@ -32,7 +32,7 @@ instances.example.conf    实例清单模板
 scripts/
   fetch.py                抓 issue / 评论 / 关联 PR / server 与 Plugin 仓 PR（断点续传）
   classify.py             规则打分（只排序）
-  pick.py                 初筛 → candidates.jsonl
+  pick.py                 初筛 → candidates.jsonl，每跑一次记一轮（rounds.jsonl）
   sqlextract.py           issue 正文 SQL 抽取（PL/SQL 块、兼容模式派库、缺对象检测）
   gen_cases.py            程序化生成复现材料，其余入构造队列
   show_issue.py           打印 issue + 评论 + 关联 PR 根因栏，给 agent 取材
@@ -40,7 +40,9 @@ scripts/
   lib.sh preflight.sh run_batch.sh worker.sh isolate.sh run_shell.sh   数据库主机上跑
   xtriage.py              整理判读包
   promote.py              沉淀用例目录 + 别名表
-prompts/                  构造 / 判读 / 溯根因 三个子 agent 的提示词
+  stats.py                每轮六桶统计 → rounds/<N>.stats.json
+  feed.py                 供题组装：prep 组发件箱批次 / check 批次自检（不自己推，hook 推）
+prompts/                  构造 / 判读 / 溯根因 / 写推送脚本 四个子 agent 的提示词
 references/pitfalls.md    踩坑清单（改脚本前必读）
 tests/                    python3 -m unittest discover -s tests
 ```
@@ -51,6 +53,8 @@ tests/                    python3 -m unittest discover -s tests
 raw/                 issues.jsonl comments/ issue_pulls/ pulls.jsonl pulls_plugin.jsonl
 derived/             classified.{csv,jsonl}
 candidates.jsonl     初筛结果
+rounds.jsonl         轮次记录：每跑一次 pick 追加一行（漏斗 + 候选 id）
+rounds/<N>.stats.json  每轮六桶统计（feed.py 的唯一数据源）
 constructed/<n>/     复现材料：setup.sql workload.sql meta.json [expect.txt tool.sh pre.sh post.sh]
 queue/               construct.jsonl ext.jsonl
 jobs/                sql.txt shell.txt
@@ -78,3 +82,13 @@ cases/_alias-map.json
 `GT`：3 = 根因到代码位置或有 PR 讲清机制；2 = 有机制说明；1 = 只有现象。
 
 排除标记：`ISSUE_OPEN=yes`（社区未定论）、`NON_DEFECT=cancelled`（社区判非缺陷，可作负样本）、`EVIDENCE_SUSPECT=yes`（复现脚本存疑）；`ISSUE_OPEN=merged_pr`（单未关但修复已合入）照常用。
+
+## 供题（阶段 8）
+
+每轮收口跑 `stats.py`（六桶统计：可复现 / 不可复现-脚本侧 / 不可复现-非脚本 / 负样本 / 存疑 / 未定论，
+另有「未跑完」告警不入桶）→ `feed.py prep` 把可复现用例组装进 `<项目根>/.dbdog-outbox/`（manifest 带
+`total_issues`/`filtered_issues`/`repro_stats` 六键，全部本轮增量）→ 子 agent 按 `prompts/feed.md` 写
+setup.sh/run.sh/cleanup.sh（规矩单源 dbdog-push-kit/AGENTS.md）→ `feed.py check` 自检 →
+**Stop hook 自动推送**（平台拒收的错误清单回灌，修正后自动重推）。`prep --close` 把本轮候选补进
+tried.jsonl 封账。计数器铁律：`total_issues`/`filtered_issues`/`repro_stats` 一律报本轮增量，
+绝不报累积值——平台按流水累加，重推已存在的用例时批次计数器应报 0。
