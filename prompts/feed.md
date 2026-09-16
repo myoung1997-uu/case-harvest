@@ -39,13 +39,17 @@ issue 号：{IDS}
 1. **连接只读环境变量** `PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE`，一行都不能写死；
    客户端 `PSQL_BIN="${PSQL_BIN:-$(command -v psql || command -v gsql)}"`。
 2. 退出码语义是契约：判定不了的宁可 `exit 2`，**绝不把「没法判」报成 1**。
-3. SQL 只许做两类改写：对象名加用例前缀、对象放进用例自有的 schema；不许改语句逻辑
+3. **B 兼容用例（CASE_DB=bench_b / compatibility=B）必须自己开 B 模式开关**：收割跑批有前导
+   自动 `SET enable_set_variable_b_format=on`，**平台没有这个前导**——run.sh（或 setup.sh）连上库后
+   第一条就要 `SET enable_set_variable_b_format = on;`，否则 `@变量`、反引号直接 syntax error
+   （收割实测 149 条用例栽过）。其他会话级兼容参数（如 `behavior_compat_options`）按判读依据同样自带。
+4. SQL 只许做两类改写：对象名加用例前缀、对象放进用例自有的 schema；不许改语句逻辑
    （改了就不是这道题了）。
-4. workload 要能重复执行；慢类（symptom_class=slowness）的重复次数照 ground-truth 的判读依据来，
+5. workload 要能重复执行；慢类（symptom_class=slowness）的重复次数照 ground-truth 的判读依据来，
    别自己发明。
-5. 崩溃类按 AGENTS.md 的崩溃判定写（连接断/实例探活）；卡死类必须用 hang_driver，不许裸跑。
-6. 写完每个脚本自检：`bash -n` 过一遍；对照 AGENTS.md 的检查清单逐条打勾。
-7. 不写复现结论——你写的是判定逻辑，结论由平台执行后得出。
+6. 崩溃类按 AGENTS.md 的崩溃判定写（连接断/实例探活）；卡死类必须用 hang_driver，不许裸跑。
+7. 写完每个脚本自检：`bash -n` 过一遍；对照 AGENTS.md 的检查清单逐条打勾。
+8. 不写复现结论——你写的是判定逻辑，结论由平台执行后得出。
 
 ## 回报
 
