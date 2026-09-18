@@ -29,13 +29,13 @@
 3. work.log 里一条 `Time:` 行都没有（noexec）→ 一律 `construct_fail`，理由写「环境：没执行到」。
 4. `no` = 触发语句确实执行到了、现象没出现（该版本无此缺陷或已修）。
 5. 崩溃型：connection to server was lost / server closed the connection，且前后语句正常 → `yes` 候选（串行跑，归属可信），evidence 引用断连文案行。
-6. **复现过的判定是粘性的（owner 2026-09-18）**：复验轮里「前次已复现、本次没跑出来」= 偶现问题，仍归 yes（可复现），**不许判 no**。降级只给一种场景——有确凿证据上次判定本身就错了（如探针没过就判了 yes），此时在 `judge_reason` 里写明翻案理由并注明 `REOPEN=yes`。目标=扩大复现数量，偶现问题恰恰是最有价值的用例。
+6. **复现过的判定是粘性的（owner 2026-09-18）**：复验轮里「前次已复现、本次没跑出来」= 偶现问题，仍归 yes（可复现），**不许判 no**。降级只给一种场景——有确凿证据上次判定本身就错了（如探针没过就判了 yes），此时在 `judge_reason` 里写明翻案理由并注明 `REOPEN=yes`，并按「回报」段的规矩加 FLAG 行。目标=扩大复现数量，偶现问题恰恰是最有价值的用例。
 
 写 `{HARVEST_HOME}/judged/{N}.json`（UTF-8）:
 ```json
 {"id":"{N}","db":"<case.env 的 CASE_DB 归并后:bench/bench_b/bench_pg/bench_d>",
  "per_version":{"{VERSION_TAG}":{"verdict":"...","evidence":["日志原文行，至少一条"]}},
- "judge_reason":"一两句","symptom_class":"<case.env SYMPTOM_CLASS>",
+ "judge_reason":"结论怎么来的：把排除其他结论的关键依据写清（通常一两句，不够就多写——复核时只看这个文件，推理过程别省）","symptom_class":"<case.env SYMPTOM_CLASS>",
  "phenomenon":"DBA 可观测现象一句话：发生了什么、在哪类对象上、报什么错/差多少。不写根因、不写定位手段、不写 issue 号",
  "script_bug":null,"flags":{"EVIDENCE_SUSPECT":null}}
 ```
@@ -74,6 +74,9 @@ manifest.json（单条）字段——**全要，中文字段值**:
 ```
 现象类映射: failure→错、wrong-results→错、slowness→慢、resource→满、crash→coredump；断连型加 coredump。
 
-## 回报（纯文本，三行以内）
+## 回报（纯文本，正常三行以内）
 `OG-{N} | <verdict> | <一句话理由>`
 yes 的话再加一行：`PUSH_READY | 判据要点一句话`
+出现下列任一情况时**必须**另起一行，不许并进一句话里压掉：
+`FLAG | <REOPEN|SCRIPT_BUG|ENV> | <一句话>`
+（REOPEN=有确凿证据上次判定本身错了；SCRIPT_BUG=我方复现脚本有 bug 待主会话修；ENV=noexec/实例状态可疑等环境异常）
