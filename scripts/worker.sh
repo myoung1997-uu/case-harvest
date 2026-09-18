@@ -39,6 +39,7 @@ while read -r id db target; do
   fi
   echo "$id done" >> "$OUT/_rc.$label.txt"
   n=$((n+1)); [ $((n % 20)) -eq 0 ] && trim_cores "$core"
+  sleep "${CASE_GAP:-30}"   # 用例间隔:等 undo/autovacuum 回收上一条的残留,慢类计时更干净;CASE_GAP=0 可关
 done < "$H/jobs/sql.txt"
 rm -f "$TMP".*.sql
 touch "$OUT/_done.$label.$WI"
