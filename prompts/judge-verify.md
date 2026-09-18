@@ -64,7 +64,7 @@ manifest.json（单条）字段——**全要，中文字段值**:
 {"total_issues":1,"filtered_issues":1,
  "repro_stats":{"reproducible":1,"nonrepro_script":0,"nonrepro_other":0,"negative":0,"suspect":0,"undecided":0},
  "cases":[{"case_number":"OG-{N}","phenomenon":"<judged.json 的 phenomenon>","engine":"opengauss",
-   "compatibility":"<bench→A,bench_b→B,bench_pg→PG,bench_d→D>",
+   "compatibility":"<A|B|PG|D>",
    "root_cause_fix":"【根因】\n<ground-truth.md 根因段提炼>\n\n【修复】\n- <PR 链接+一句话，GT=2 无 PR 就如实写无链接>",
    "judge_criteria":"<ground-truth.md 判读依据 + 本轮实测证据形态；写明激活前提与缺依赖形态>",
    "engine_version":"<本轮引擎版本>","commit_id":"<本轮构建>",
@@ -73,6 +73,14 @@ manifest.json（单条）字段——**全要，中文字段值**:
    "timeout_seconds":180}]}
 ```
 现象类映射: failure→错、wrong-results→错、slowness→慢、resource→满、crash→coredump；断连型加 coredump。
+
+compatibility 判别（owner 2026-09-19 定——从材料判，**不做 CASE_DB→字母映射**）:
+- 看问题描述（issues.json 原文）和用例 SQL（setup.sql/workload.sql）:
+  反引号标识符、`@变量`、`tinyint/mediumint`、`unsigned`、`auto_increment`、`replace into`、`insert ignore`、`group_concat/ifnull/date_format` → `B`
+  SQL Server 语法（`top`、`[]` 引用、`nvarchar`）→ `D`
+  问题描述/判据明确是 PG 兼容模式相关 → `PG`
+- **判不出 B/PG/D 特征 → 默认 `A`**
+- 值只许 A/B/PG/D 四个字母，判别说明写在 judge_criteria 里，**别写进字段**
 
 ## 回报（纯文本，正常三行以内）
 `OG-{N} | <verdict> | <一句话理由>`
