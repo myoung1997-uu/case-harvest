@@ -156,6 +156,6 @@ close 不丢数据——下轮 pick 会重捞这些号，各轮各记各的数�
 - 「没看见缺陷」推不出「已修复」——负向判定的资格由**场景激活探针**授予，报错形态（如 0A000 vs 42703/42601）是判定的一部分。
 - 复现过的判定是**粘性**的：「前次复现、本次没跑出来」= 偶现，仍归可复现，不许自动降级——本地 `verdict_update.sh` 与平台粘性守卫（benchweb#27）双侧拦截，也保护手工重标的归属不被他人/台账重建的自动重算冲掉；确证上次判定本身判错才 `--force`，一次一条留痕。
 - 用例环境按**触发体**推导（@变量/dolphin 语法→bench_b，shark 语法→bench_d，GUC/普通语法→bench 就够），不抄历史复现位置；`CASE_DB` 只在构建一致时才是有效落点，**实例换构建后能力会漂移**（dbdog 构建无 dolphin 是实例）。
-- 平台兼容字段（manifest 的 `compatibility`）**独立判别，不做 CASE_DB→字母映射**（owner 2026-09-19）：从问题描述和用例 SQL 判——B:反引号/@变量/MySQL 型语法；D:`top`/`[]`引用/`nvarchar`；PG:明确 PG 兼容模式相关；**判不出 B/PG/D 特征默认 `A`**。值只许 A/B/PG/D 四个字母（曾有 4 条把映射提示 `bench→A` 原样抄进字段的脏数据）。
+- 平台兼容字段（manifest 的 `compatibility`）**独立判别，不做 CASE_DB→字母映射，按引擎分家**（owner 2026-09-19）：openGauss 只许 A/B/PG/D，GaussDB 只许 A/B/M（M=GaussDB 新 M 兼容）。从问题描述和用例 SQL 判——B:反引号/@变量/MySQL 型语法；D:`top`/`[]`引用/`nvarchar`（仅 openGauss）；PG:明确 PG 兼容模式相关（仅 openGauss）；M:GaussDB 明确 M 兼容相关（仅 GaussDB）；**判不出特征默认 `A`**。推送脚本按引擎白名单校验兜底（曾有 4 条把映射提示 `bench→A` 原样抄进字段的脏数据）。
 - 一切结论钉 commit_id：**同版本号不同构建=不同环境**（7.0.0-RC1 的 12c995f 与 cff7b04d 在 OG-7964/1602 上行为相反是实例）。
 - 改 `sqlextract.py` 先加回归用例：`python3 -m unittest discover -s $SKILL/tests`。
