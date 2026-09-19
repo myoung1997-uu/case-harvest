@@ -1,0 +1,8 @@
+<html><head><title>DTS-401 问题详情 - DTS</title></head>
+<body><div class="detail">
+<h1>DTS-401 分区表裁剪错误</h1>
+<div class="section"><h3>问题描述</h3><p>集中式环境分区裁剪后返回多余行。</p></div>
+<div class="section"><h3>操作步骤</h3><pre>create table p1(a int) partition by range(a);
+select * from p1 where a = 1;</pre></div>
+<div class="section"><h3>B版本</h3><p>GaussDB-505.4.0</p></div>
+</div></body></html>

@@ -1,0 +1,5 @@
+{"id": "DTS-101", "title": "索引扫描结果错误", "body": "【问题描述】集中式环境下查询返回行数不对。\n【操作步骤】\n```sql\ncreate table t1(a int, b text);\ninsert into t1 values (1, 'x');\nselect count(*) from t1 where a = 1;\n```\n【实际输出】ERROR: xx", "fields": {"B版本": "GaussDB-505.1.0"}, "attachments": []}
+{"id": "DTS-102", "title": "分布式备机日志异常", "body": "【问题描述】分布式环境下 dn 日志刷屏。\n【操作步骤】\n```sql\ncreate table t2(a int);\nselect * from t2;\n```", "fields": {"B版本": "GaussDB-505.1.0"}, "attachments": []}
+{"id": "DTS-103", "title": "存储过程编译报错", "body": "【问题描述】集中式问题,见用例文件复现,grtmgr 工程可跑出。", "fields": {"B版本": "GaussDB-505.2.0"}, "attachments": [{"name": "test_case_grtmgr_103.py"}]}
+{"id": "DTS-104", "title": "字段类型转换报错", "body": "【问题描述】集中式环境插入报错。\n【操作步骤】\n```sql\ncreate table t3(a int);\ninsert into t3 values ('abc');\n```", "fields": {}, "attachments": []}
+{"id": "DTS-105", "title": "页面显示问题", "body": "【问题描述】监控页面偶尔白屏,重启后恢复。", "fields": {"B版本": "GaussDB-505.1.0"}, "attachments": []}

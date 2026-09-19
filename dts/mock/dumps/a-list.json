@@ -1,0 +1,34 @@
+{
+  "tier": "A",
+  "page": "https://dts.example.com/issues?version=505",
+  "at": "2026-09-19T10:00:00Z",
+  "pages": [
+    {
+      "page": 1,
+      "body": {
+        "code": 0,
+        "labels": ["x", "y"],
+        "data": {
+          "total": 2,
+          "records": [
+            {
+              "id": "DTS-301",
+              "title": "执行计划选择错误",
+              "description": "【问题描述】集中式环境查询报错。\n```sql\ncreate table q1(a int);\ninsert into q1 values(1);\nselect * from q1;\n```",
+              "B版本": "GaussDB-505.3.0",
+              "state": "已验收"
+            },
+            {
+              "id": "DTS-302",
+              "title": "界面偶现白屏",
+              "description": "【问题描述】页面偶现白屏,刷新恢复。",
+              "B版本": "GaussDB-505.3.0",
+              "state": "处理中"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "details": []
+}
