@@ -38,6 +38,9 @@ probe-out/
 - **A 档·接口重放**:用页面内 JS `fetch()` 重放步骤 1 记下的 XHR,返回 JSON 落盘;
 - **B 档·表格刮取**:A 不行(没 XHR 或重放失败)→ JS `querySelectorAll` 把结果表整表刮成 JSON;
 - **C 档·整块搬运**:B 也不行 → JS 把结果区域 `innerHTML` 原样落盘。
+  **区域太大别硬扛**(body 级动辄上兆):先缩 `regionSelector` 到正文容器 → 不行
+  `mode:"text"` 只要文本 → 还大就 `partSelector` 分块;脚本超限会"拒载"报实际尺寸,
+  绝不静默截断。
 - 每档只许试一次,失败就降档,**不调试、不恋战**——dump 到手就是胜利。
 
 ## 步骤 3 · dump 两条样本单(一条 SQL 型、一条 grtmgr 型)
