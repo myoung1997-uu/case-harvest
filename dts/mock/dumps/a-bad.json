@@ -1,9 +1,0 @@
-{
-  "tier": "A",
-  "page": "https://dts.example.com/issues?version=505",
-  "at": "2026-09-19T10:15:00Z",
-  "pages": [
-    {"page": 1, "body": {"code": 500, "message": "internal error"}}
-  ],
-  "details": []
-}
