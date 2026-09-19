@@ -114,8 +114,10 @@ prep 组装发件箱批次（manifest 统计 + 可复现用例清单 + 空壳目
 规矩单源在 dbdog-push-kit/AGENTS.md），写完：
 
 **流式收割模式**（复验轮标准，2026-09-17 用户定）：不等整轮收口——**判读判出 yes 即单条推送**，
-推送时连带六桶增量上账。规矩：
+推送时连带六桶增量上账。两个脚本都在 `$SKILL/scripts/`：`prep_next.sh`（同步日志+挑号+实例化
+判读 prompt 到暂存区）、`push_one.sh <用例号>`（搬进发件箱+改统计+推送）。规矩：
 - 每个批次只装 1 条用例，批次先落 `staging/`，推送时才移入发件箱根目录（保证 tc-push 一次只推一笔，防捎带）
+  —— 这一步 `push_one.sh` 自己做，且根目录里还有别人的批次时**直接拒绝**（不硬推、不捎带）
 - manifest 统计字段由推送脚本统一改写：`total_issues = filtered_issues = 自上次推送以来新判读的条数`，
   `repro_stats` 为这批新判读的六桶分布（**六桶和 = filtered**，平台流水累加即累计、自洽可对账）；
   增量为空时如实报 0/0/全零，绝不虚报
@@ -129,7 +131,8 @@ prep 组装发件箱批次（manifest 统计 + 可复现用例清单 + 空壳目
 python3 $SKILL/scripts/feed.py check <批次目录>   # 本地自检；平台终审在推送时
 ```
 
-**推送显式执行** `dbdog-push-kit/tc-push.sh --outbox <项目根>/.dbdog-outbox`（2026-09-16 实证：插件
+**推送显式执行**：批量走 `dbdog-push-kit/tc-push.sh --outbox <项目根>/.dbdog-outbox`；流式单条走
+`$SKILL/scripts/push_one.sh <用例号>`（内部包 tc-push，但只推一笔）。（2026-09-16 实证：插件
 0.22.33 起 case-feed 的 Stop hook **不再自动推**，等 hook 会白等）。推成功的批次移入 `sent/`——
 **sent/ 是推送存档，进去了就只读**；要修正就开新批次或改源头用例库再重推，别在存档里改（会造出
 「档案≠平台实际收到」的断链）。平台拒收时错误清单会给出，修好后重推即可。平台对**已存在的编号是
