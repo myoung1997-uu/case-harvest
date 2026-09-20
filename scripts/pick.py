@@ -6,10 +6,12 @@
 - 标题/结论片段命中「非数据库本体」或「单机造不出的形态」直接排
 - 默认要求有已合并的关联 PR：进池前就锁死根因。实测不筛时复现出来也有一成找不到根因，
   筛了之后根因覆盖 100%，构造 agent 还能照 PR 说的边界条件构造
-- 不用 dbdogFit/buildCost/groundTruth 分档过滤（关键词分，误杀严重），也不按版本过滤——只拿 score 排序
+- 不用 dbdogFit/buildCost/groundTruth 分档过滤（关键词分，误杀严重）——只拿 score 排序
+- 版本默认不过滤；给了 `--version` 才按 classify.py 抽出的 versionMajor 收窄（判不出记「未知」，
+  同样会被这一闸挡掉，不蒙混过关）。挑哪几个版本由调用方定，不写死在脚本里
 
 用法：
-    python3 pick.py [--allow-no-pr] [--exclude-cases DIR ...] [--limit N]
+    python3 pick.py [--allow-no-pr] [--exclude-cases DIR ...] [--version 7.0 --version 6.0] [--limit N]
 """
 import argparse
 import json
@@ -60,8 +62,13 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--allow-no-pr", action="store_true", help="不要求已合并关联 PR（不建议）")
     ap.add_argument("--exclude-cases", action="append", default=[], help="已有用例库目录，里面的 OG-<n> 跳过")
+    ap.add_argument("--version", action="append", default=[],
+                    help="只要这些 major.minor（可重复，也可逗号分隔：--version 7.0,6.0）。缺省不过滤。"
+                         "取值来自 classify.py 的 versionMajor，即标题/正文「测试版本」段抽出的 openGauss 发版号")
     ap.add_argument("--limit", type=int, default=0)
     a = ap.parse_args()
+    # 版本过滤集合：--version 可重复也可逗号分隔
+    want_ver = {v.strip() for x in a.version for v in x.split(",") if v.strip()}
     home = common.home()
     raw = os.path.join(home, "raw")
     cls_path = os.path.join(home, "derived", "classified.jsonl")
@@ -87,11 +94,15 @@ def main():
     if not idx:
         print("⚠ 没有 pulls.jsonl / pulls_plugin.jsonl，repo 为空的关联 PR 无法定仓（fetch.py pulls / pulls-plugin）")
 
-    funnel = {"全量": 0, "缺陷且非CI": 0, "层可单机": 0, "非外部/非特殊形态": 0, "未收割过": 0, "有已合并PR": 0}
+    funnel = {"全量": 0, "指定版本": 0, "缺陷且非CI": 0, "层可单机": 0, "非外部/非特殊形态": 0, "未收割过": 0, "有已合并PR": 0}
     out = []
     for line in open(cls_path, encoding="utf-8"):
         r = json.loads(line)
         funnel["全量"] += 1
+        # 版本闸：判不出版本的记「未知」，也会被这一闸挡掉（不蒙混过关）
+        if want_ver and (r.get("versionMajor") or "未知") not in want_ver:
+            continue
+        funnel["指定版本"] += 1
         if r["issueType"] != "缺陷" or r["ciNoise"]:
             continue
         funnel["缺陷且非CI"] += 1
