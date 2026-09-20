@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # prep_next.sh [条数=5] — 同步跑批日志，挑「未判读且不在途」的用例，实例化 prompt 到暂存区
 #
-# 在途标记：/tmp/percase_og<N>.md 存在即视为在途（同一台机器上多个会话共用这套标记，
+# 在途标记：/tmp/percase_r<轮>_og<N>.md 存在即视为在途（同一台机器上多个会话共用这套标记，
 #   所以它也是「两个 loop 不抢同一条」的那道互斥——别在这上面另起一套）。
+#   **标记带轮次**：早先的写法是不带轮次的 /tmp/percase_og<N>.md，于是上一轮判完留下的标记
+#   会让下一轮 pick 到同号时被判成「在途」而**静默跳过**（漏号且不留痕）。轮次取自
+#   rounds.jsonl 最新一行；没有 rounds.jsonl 时记 r0。换轮次时旧标记天然失效，不必手工清。
 # 崩溃候选压后：/tmp/harvest_crash_defer.txt 里列到的号等 iso 复验完再挑。
 #
 # 模板单源：prompts/judge-verify.md（**不是**工作区里的副本；副本勿手改）。
@@ -38,6 +41,20 @@ INSTANCES=${INSTANCES:-$H/instances.conf}
 TPL=$HERE/../prompts/judge-verify.md
 
 [ -f "$TPL" ] || die "模板不存在：$TPL"
+
+# ── 轮次 → 在途标记前缀（标记按轮隔离，见文件头说明）──────────────────────
+# 取 rounds.jsonl 最新一行的 round（与 stats.py 取「最新一轮」同一口径）；没有就记 r0。
+ROUND=$(python3 - "$H" <<'PY'
+import json, os, sys
+p = os.path.join(sys.argv[1], "rounds.jsonl")
+try:
+    rows = [l for l in open(p, encoding="utf-8") if l.strip()]
+    print(json.loads(rows[-1])["round"] if rows else 0)
+except Exception:
+    print(0)
+PY
+)
+MARK="/tmp/percase_r${ROUND}_og"
 
 # ── 远端跑批日志同步（可选）──────────────────────────────────────────────
 if [ -n "${HARVEST_DB_HOST:-}" ]; then
@@ -76,13 +93,13 @@ n=0
 for f in $(ls "$H"/results/*.work.log 2>/dev/null | sed 's|.*/\([0-9]*\)\..*|\1|' | sort -n); do
   [ "$n" -ge "$CNT" ] && break
   [ -f "$H/judged/$f.json" ] && continue                                  # 已判
-  [ -f "/tmp/percase_og$f.md" ] && continue                               # 在途
+  [ -f "${MARK}$f.md" ] && continue                                       # 在途（本轮）
   [ -f /tmp/harvest_crash_defer.txt ] && grep -qx "$f" /tmp/harvest_crash_defer.txt && continue  # 崩溃候选压后
   mkdir -p "$S/b-og$f"
   ST=$(python3 - "$f" "$S" "$H" "$TPL" "$CASES_DIR" "$VERSION_TAG" "$BUILD_ID" \
-         "$HARVEST_INSTANCE_DESC" "$HARVEST_ENV_FACTS" <<'PY'
+         "$HARVEST_INSTANCE_DESC" "$HARVEST_ENV_FACTS" "$MARK" <<'PY'
 import json, sys
-i, s, home, tpl, cases_dir, vtag, build, idesc, efacts = sys.argv[1:10]
+i, s, home, tpl, cases_dir, vtag, build, idesc, efacts, mark = sys.argv[1:11]
 t = open(tpl, encoding="utf-8").read()
 for k, v in (("{N}", i), ("{BATCH}", f"{s}/b-og{i}"), ("{HARVEST_HOME}", home),
              ("{CASES_DIR}", cases_dir), ("{VERSION_TAG}", vtag), ("{BUILD_ID}", build),
@@ -104,7 +121,7 @@ left = sorted(set(k for k in ("{N}", "{BATCH}", "{HARVEST_HOME}", "{CASES_DIR}",
                               "{BUILD_ID}", "{INSTANCE_DESC}", "{ENV_FACTS}") if k in t))
 if left:
     sys.exit(f"实例化后还有没替掉的占位符：{left}——模板改了占位符名？改本脚本的映射表")
-open(f"/tmp/percase_og{i}.md", "w", encoding="utf-8").write(t)
+open(f"{mark}{i}.md", "w", encoding="utf-8").write(t)
 print("已推,只判读" if pushed else "新号")
 PY
 ) || exit 2
