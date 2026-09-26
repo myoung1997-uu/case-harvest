@@ -144,6 +144,25 @@ print(f"统计增量：scanned+{len(inc)} {stats}")
 print(f"case_verdicts：{len(m['case_verdicts'])} 条随行")
 PY
 
+# ⑤.5 verify 闸门（2026-09-26 三道闸之①，benchweb kit 新约强制）：
+#     推送前以平台同款语义在本地跑两遍（临时 schema+同款注入，第二遍保留第一遍
+#     复刻取证窗口），落 receipt.json —— 平台端按 files_sha256 复核，改一字即拒。
+#     连接环境读 $HARVEST_HOME/verify.env（PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE
+#     [+PSQL_BIN]，指向任一可达实例——验的是「配得上平台的跑法」，版本随意）。
+VKIT=$(dirname "$KIT")
+if [ -f "$H/verify.env" ]; then
+  . "$H/verify.env"
+fi
+if [ -x "$VKIT/verify.sh" ]; then
+  : "${PGHOST:?verify 闸门需要连接环境：写 $H/verify.env（PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE[/PSQL_BIN]）}"
+  for case_dir in "$BATCH"/*/; do
+    [ -f "$case_dir/meta.json" ] || continue
+    bash "$VKIT/verify.sh" "${case_dir%/}" || die "verify 未过：照上方输出修脚本，重跑 verify 通过后再推（批次留在 $BATCH）"
+  done
+else
+  echo "⚠ 接入包无 verify.sh（旧版 kit）——平台部署三道闸后此类推送将被拒收，请尽快刷新 kit" >&2
+fi
+
 # ⑥ 推送（扫的是根目录，此刻里头只有这一笔）。pipefail 已开，rc 反映 tc-push 的退出码。
 bash "$KIT" --outbox "$OUTBOX" 2>&1 | tail -3
 rc=$?
